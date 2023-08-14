@@ -196,3 +196,106 @@ abstract Product factoryMethod(String type)
   - 구상 클래스에서 유도된 클래스를 만들면 특정 구상 클래스에 의존하게 된다. 인터페이스나 추상 클래스처럼 추상화된 것으로 부터 클래스를 만들어야 한다
 - 베이스 클래스에 이미 구현되어 있는 메서드를 오버라이드하지 말기
   - 이미 구현되어 있는 메서드를 오버라이드한다면 베이스 클래스가 제대로 추상화되지 않는다. 베이스 클래스에서 메서드를 정의할 때는 모든 서브 클래스에서 공유할 수 있는 것만 정의해야 한다
+
+### 추가된 요청사항
+- 원재료 품질 관리를 위해 뉴욕과 시카고의 피자 가게에 다른 재료를 사용할 수 있어야 한다
+- 서로 다른 재료를 제공하기 위해 원재료군을 어떻게 처리할 지 생각해보자
+  - 뉴욕, 시카고, 캘리포니아 총 3개의 지역이 서로 다른 원재료들을 사용한다
+
+#### 원재료 팩토리 만들기
+- 원재료를 생산하는 팩토리를 만들어보자
+- 이 팩토리에서는 원재료군에 들어있는 각각의 원재료(반죽, 소스, 치즈 등)를 생산한다
+1. 지역별로 팩토리를 만든다. 각 생성 메서드를 구현하는 `PizzaIngredientFactory` 클래스를 만들어야 한다
+2. ReggianoCheese, RedPeppers 등과 같이 팩토리에서 사용할 원재료 클래스를 구현해야 한다
+3. 새로 만든 원재료 팩토리를 PizzaStore 코드에서 사용하도록 모든 것을 하나로 묶어야 한다
+- 원재료 팩토리를 만들면 만들어지는 재료는 어떤 팩토리를 쓰는지에 따라 달라진다. 피자 클래스는 피자를 만들기만 하면 되기 때문에 어떤 재료가 배달되는지 몰라도 된다. 따라서 모든 지역에서 어떤 팩토리를 사용하든 클래스를 재사용할 수 있다
+```java
+sauce = ingredientFactory.createSauce()
+```
+
+#### `Pizza` 클래스 변경
+```ruby
+class Pizza
+  attr_accessor :name
+  attr_reader :dough, :sauce, :veggies, :cheese, :peppernoi
+
+  def prepare
+    raise NotImplementedError
+  end
+
+  def bake
+    puts '175도에서 25분 간 굽기'
+  end
+
+  def cut
+    puts '피자를 사선으로 자르기'
+  end
+
+  def box
+    puts '상자에 피자 담기'
+  end
+end
+```
+```ruby
+class CheesePizza < Pizza
+  def initialize(ingredient_factory)
+    @name = '치즈 피자'
+    @ingredient_factory = ingredient_factory
+  end
+
+  attr_reader :name, :ingredient_factory
+
+  def prepare
+    @dough = ingredient_factory.create_dough
+    @sauce = ingredient_factory.create_sauce
+    @cheese = ingredient_factory.create_cheese
+    @veggies = ingredient_factory.create_veggies
+    veggie_names = veggies.map(&:name).join(', ')
+
+    puts "준비 중: #{name}"
+    puts "#{@dough.name}를 돌리는 중..."
+    puts "#{@cheese.name}를 돌리는 중..."
+    puts "#{@sauce.name}를 뿌리는 중..."
+    puts "토핑을 올리는 중 : #{veggie_names}"
+  end
+end
+```
+
+#### `PizzaStore` 클래스 변경
+```ruby
+class NyPizzaStore < PizzaStore
+  def create_pizza(item)
+    pizza_ingredient_factory = NyPizzaIngredientFactory.new
+
+    case item
+    when 'cheese'
+      pizza = CheesePizza.new(pizza_ingredient_factory)
+      pizza.name = '뉴욕 스타일 치즈 피자'
+    when 'pepperoni'
+      pizza = PepperoniPizza.new(pizza_ingredient_factory)
+      pizza.name = '뉴욕 스타일 페퍼로니 피자'
+    when 'clam'
+      pizza = ClamPizza.new(pizza_ingredient_factory)
+      pizza.name = '뉴욕 스타일 조개 피자'
+    when 'veggie'
+      pizza = VeggiePizza.new(pizza_ingredient_factory)
+      pizza.name = '뉴욕 스타일 야채 피자'
+    end
+
+    pizza
+  end
+end
+```
+
+#### Client 코드
+```ruby
+ny_pizza_store = NyPizzaStore.new
+ny_pizza_store.order_pizza('cheese')
+```
+
+#### 정리
+- 추상 팩토리를 통해 피자 종류에 맞는 원재료군을 생산하는 방법을 구축했다
+- 추상 팩토리로 제품군을 생성하는 인터페이스를 제공했다
+- 인터페이스를 사용하면 코드와 제품을 생산하는 팩토리를 분리할 수 있다
+- 이를 통해 서로 다른 상황에 맞는 제품을 생산하는 팩토리를 구현할 수 있다
+  - 코드가 실제 원재료와 분리되어 있으므로 다른 원재료가 필요하다면 다른 팩토리를 사용하면 된다
