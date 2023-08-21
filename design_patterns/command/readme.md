@@ -102,3 +102,53 @@ remote.button_pressed
 - 리모컨의 각 슬롯에 명령을 할당해보자(리모컨이 인보커가 되는 것)
 - 사용자가 버튼을 누르면 그 버튼에 맞는 커맨드 객체의 `execute()` 메서드가 호출되고, 리시버(조명, 선풍기, 오디오 등)에서 특정 행동을 담당하는 메서드가 실행된다
 
+### 매크로 커맨드로 여러 동작을 한 번에 처리하기
+
+- 매크로 커맨드를 구현하여 배열을 받아 여러 동작을 한번에 처리할 수 도 있다
+```ruby
+class MacroCommand < Command
+  def initialize(commands)
+    @commands = commands
+  end
+
+  attr_reader :commands
+
+  def execute
+    commands.each(&:execute)
+  end
+end
+
+
+remote_control = RemoteControl.new
+
+light = Light.new('거실')
+light_on = LightOnCommand.new(light)
+light_off = LightOffCommand.new(light)
+
+ceiling_fan = CeilingFan.new('거실')
+ceiling_fan_high = CeilingFanHighCommand.new(ceiling_fan)
+ceiling_fan_off = CeilingFanOffCommand.new(ceiling_fan)
+
+party_on = [light_on, ceiling_fan_high]
+party_off = [light_off, ceiling_fan_off]
+party_on_macro = MacroCommand.new(party_on)
+party_off_macro = MacroCommand.new(party_off)
+
+remote_control.assign_command(0, party_on_macro, party_off_macro)
+
+puts remote_control
+puts '--- 매크로 ON ---'
+remote_control.on_button_pushed(0)
+puts '--- 매크로 OFF ---'
+remote_control.off_button_pushed(0)
+```
+
+#### 리시버가 필요할까?
+
+- 커맨드 패턴을 사용하여 요청하는 객체와 요청을 수행하는 객체를 분리할 수 있고, 커맨드 객체가 행동이 들어 있는 리시버를 캡슐화한다
+- 커맨드 객체에서 `execute()` 할 수도 있지만, 인보커와 리시버를 분리하기 어렵고, 리시버로 커맨드를 매개변수화할 수 없다는 단점이 있다
+
+#### 커맨드 패턴 활용
+- 실행한 커맨드 자체를 스택에 넣어 작업 취소할 때 히스토리 기능을 구현할 수 도 있다
+- 커맨드로 컴퓨테이션의 한 부분(리비서와 일련의 행동)을 패키지로 묶어서 일급 객체 형태로 전달할 수도 있다. 그러면 클라이언트 애플리케이션에서 커맨드 객체를 생성한 뒤 오랜 시간이 지나도 그 컴퓨테이션을 호출할 수 있다. 다른 스레드에서 호출할 수도 있어 이를 통해 커맨드 패턴을 스케줄러나 스레드 풀, 작업 큐와 같은 다양한 작업에 적용할 수 있다
+- 어떤 애플리케이션이 다운되었을 때 커맨드 패턴을 통해 store(), load() 등의 메소드를 구현하여 복구할 수 있고, 트랜잭션을 활용해서 모든 작업이 완벽하게 처리되도록 하거나, 아무것도 처리되지 않게 롤백되도록 할 수 있다
